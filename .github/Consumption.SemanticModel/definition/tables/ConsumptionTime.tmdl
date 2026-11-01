@@ -1,0 +1,51 @@
+/// Time-of-day dimension. One row per time slot within a day, used to analyse when electricity is consumed.
+/// This is what makes the dynamic-tariff story visible, because prices and consumption both vary by hour.
+table ConsumptionTime
+	lineageTag: 84166709-1f8c-46e1-9baa-3d53129e2457
+	sourceLineageTag: [ekzdata].[ConsumptionTime]
+
+	/// The time of day itself. Primary key of this table and the link to the Consumption fact table.
+	column ConsumptionTime
+		dataType: dateTime
+		formatString: General Date
+		sourceProviderType: time
+		lineageTag: 20394954-8b49-4eda-bbb1-24360e771beb
+		sourceLineageTag: ConsumptionTime
+		summarizeBy: none
+		sourceColumn: ConsumptionTime
+
+		annotation SummarizationSetBy = Automatic
+
+	/// Hour of the day from 0 to 23. The usual x-axis for load profiles and for showing which hours are expensive.
+	/// Set not to summarise, because adding hour numbers together would be meaningless.
+	column Hour
+		dataType: int64
+		formatString: 0
+		sourceProviderType: int
+		lineageTag: 287bdf2a-8880-462b-8e2b-417d6a108db1
+		sourceLineageTag: Hour
+		summarizeBy: none
+		sourceColumn: Hour
+
+		annotation SummarizationSetBy = Automatic
+
+	/// Simple day versus night split of the hours, for high-level off-peak comparisons.
+	column DayNight
+		dataType: string
+		sourceProviderType: varchar(5)
+		lineageTag: 423fa3c5-2bc5-4c8f-abc6-6daaa9715abc
+		sourceLineageTag: DayNight
+		summarizeBy: none
+		sourceColumn: DayNight
+
+		annotation SummarizationSetBy = Automatic
+
+	partition ConsumptionTime = entity
+		mode: directLake
+		source
+			entityName: ConsumptionTime
+			schemaName: ekzdata
+			expressionSource: DatabaseQuery
+
+	annotation PBI_ResultType = Table
+

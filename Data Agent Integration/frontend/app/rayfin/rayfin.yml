@@ -1,0 +1,27 @@
+id: ekz-flexibility-studio
+name: EKZ Flexibility Studio
+version: 0.0.0
+services:
+  auth:
+    enabled: true
+    password:
+      enabled: false
+    fabric:
+      enabled: true
+    allowedRedirectUris:
+      - http://localhost:5173
+      - http://localhost:5173/auth/callback
+      - http://127.0.0.1:5173
+      - https://early-flora-287fe89771-switzerlandnorth.webapp.fabricapps.net
+  data:
+    enabled: false
+  storage:
+    enabled: false
+  staticHosting:
+    enabled: true
+    root: .
+    folder: dist
+    buildCommand: npm run build
+    indexDocument: index.html
+  functions:
+    enabled: false

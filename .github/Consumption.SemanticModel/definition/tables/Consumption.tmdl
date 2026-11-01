@@ -1,0 +1,240 @@
+/// Fact table. One row per customer per meter reading interval, holding the measured electricity volume in watt-hours.
+/// This is the home of all cost and savings measures: it compares what a customer actually pays on a flat rate
+/// against what they would pay on a dynamic (hourly) tariff, and against the theoretical best case.
+table Consumption
+	lineageTag: 46a648ac-bf0f-443d-ab1f-47007a26eace
+	sourceLineageTag: [ekzdata].[Consumption]
+
+	/// The flat reference price used as the "standard contract" baseline, hard-coded as 0.23.
+	/// Despite the name the unit is price per kWh, not per Wh, because every cost measure divides consumption by 1000 first.
+	/// Editing this one number re-prices every static-cost and savings measure in the model.
+	measure FixPricePerWh = .23
+		formatString: 0.00
+		lineageTag: 74bc3655-1127-4f25-a412-c3fb269f62f7
+
+		changedProperty = Name
+
+		changedProperty = FormatString
+
+	/// Total electricity consumed, in watt-hours, for whatever slice the report is showing
+	/// (a customer, a day, an hour, or everything combined).
+	/// Simply adds up the consumption_Wh column. Base building block for every cost measure.
+	/// Note: the measure name contains a typo, "Consumtion" instead of "Consumption".
+	measure TotalConsumtion_Wh = Sum(Consumption[consumption_Wh])
+		formatString: #,0.00
+		lineageTag: 933870c1-c220-4af8-82a4-ebe73656ff00
+
+		changedProperty = Name
+
+		changedProperty = FormatString
+
+	/// The baseline bill: what the customer pays on a traditional flat-rate contract.
+	/// Logic: take total consumption in Wh, divide by 1000 to convert it to kWh, then multiply by the fixed price.
+	/// The price is the same at every hour of every day, so this figure only moves when consumption moves.
+	/// Every savings measure is measured against this number.
+	measure CostStaticPrice = [TotalConsumtion_Wh] * [FixPricePerWh] / 1000
+		formatString: #,0.00
+		lineageTag: cd36d822-6757-4323-89b3-bdcbbffd568c
+
+		changedProperty = Name
+
+		changedProperty = FormatString
+
+	/// Best-case cost: what the bill would be if the entire day's consumption could be bought at that day's single cheapest hourly tariff.
+	/// Logic, step by step:
+	///   1. SUMX walks through each individual date currently in scope, one day at a time.
+	///   2. For that day it takes the total consumption and converts Wh to kWh by dividing by 1000.
+	///   3. It multiplies by LowestTarif, the cheapest price seen anywhere in that day.
+	///   4. The daily results are added together to give the total.
+	/// Day-by-day iteration matters because the cheapest price differs per day, so a single overall minimum would understate the cost.
+	/// Treat this as a theoretical floor for benchmarking, not an achievable bill, since no customer can shift 100% of their load into the cheapest hour.
+	measure CostByLowestPrice =
+			
+			SUMX (
+			    VALUES ( ConsumptionDate[ConsumptionDate] ),
+			    [TotalConsumtion_Wh] *
+			    CALCULATE (
+			        SELECTEDVALUE ( DynamicTarifMinValuePerDay[LowestTarif] )
+			    ) / 1000
+			)
+		formatString: #,0.00
+		lineageTag: eebcb088-8768-4ce6-a7ba-485e2d517ae2
+
+		changedProperty = Name
+
+		changedProperty = FormatString
+
+	/// The realistic cost under a dynamic, time-of-use contract where the price changes through the day.
+	/// Logic, step by step:
+	///   1. SUMX walks through every single meter reading row, not a daily summary, because the price changes within the day.
+	///   2. For each reading it reads the exact timestamp.
+	///   3. LOOKUPVALUE finds the tariff in DynamicTarif whose ValidFrom equals that timestamp.
+	///   4. It converts that reading from Wh to kWh and multiplies by the tariff found.
+	///   5. All rows are added together to give the total bill.
+	/// Caveat: the lookup needs an exact timestamp match on ValidFrom. A reading that does not line up with a tariff start
+	/// returns a blank price and silently contributes zero cost, which makes the total look too low.
+	/// It will also error if one timestamp matches more than one tariff row.
+	measure CostByDynamicPrice =
+			
+			SUMX (
+			    Consumption,
+			    VAR CurrentDateTime = Consumption[datetime]
+			    VAR CurrentTarif =
+			        LOOKUPVALUE (
+			            DynamicTarif[Tarif],
+			            DynamicTarif[ValidFrom], CurrentDateTime
+			        )
+			    RETURN
+			        DIVIDE ( Consumption[consumption_Wh], 1000 ) * CurrentTarif
+			)
+		formatString: #,0.00
+		lineageTag: 630d75bc-f71d-4d9e-b90b-2a21160eee6a
+
+		changedProperty = Name
+
+		changedProperty = FormatString
+
+	/// Money saved by moving from the flat rate to the dynamic tariff, in currency.
+	/// Logic: flat-rate bill minus dynamic-tariff bill.
+	/// A positive value means the dynamic tariff is cheaper; a negative value means it costs more.
+	measure SavingsDynamic_Absolute =
+			
+			[CostStaticPrice] - [CostByDynamicPrice]
+		formatString: #,0.00
+		lineageTag: 2f683577-3ef1-4238-8e06-16e700df11bc
+
+		changedProperty = Name
+
+		changedProperty = FormatString
+
+	/// The same saving as SavingsDynamic_Absolute, but expressed as a share of the flat-rate bill.
+	/// Logic: (flat-rate bill minus dynamic bill) divided by the flat-rate bill.
+	/// DIVIDE is used instead of "/" so that a zero or blank baseline returns blank rather than an error.
+	/// Use this to compare customers of very different sizes fairly.
+	measure SavingsDynamic_Pct =
+			
+			DIVIDE (
+			    [CostStaticPrice] - [CostByDynamicPrice],
+			    [CostStaticPrice]
+			)
+		formatString: 0.00%;-0.00%;0.00%
+		lineageTag: 5086df69-f698-4269-96a9-853505062775
+
+		changedProperty = Name
+
+		changedProperty = FormatString
+
+	/// The maximum theoretical saving, in currency: flat-rate bill minus the best-case daily-cheapest-price bill.
+	/// Shows the size of the prize if a customer could shift all consumption into each day's cheapest hour.
+	/// Real savings will always be smaller; use it as an upper bound, not a target.
+	measure SavingsLowest_Absolute =
+			
+			[CostStaticPrice] - [CostByLowestPrice]
+		formatString: #,0.00
+		lineageTag: edaef4d5-334b-424c-ab0e-94660149d6f6
+
+		changedProperty = Name
+
+		changedProperty = FormatString
+
+	/// The maximum theoretical saving expressed as a percentage of the flat-rate bill.
+	/// Logic: (flat-rate bill minus best-case bill) divided by the flat-rate bill, with DIVIDE guarding against a zero baseline.
+	/// The headline "up to X% cheaper" figure.
+	measure SavingsLowest_Pct =
+			
+			DIVIDE (
+			    [CostStaticPrice] - [CostByLowestPrice],
+			    [CostStaticPrice]
+			)
+		formatString: 0.00%;-0.00%;0.00%
+		lineageTag: b8437c49-e310-42ba-ad68-735f29936a47
+
+		changedProperty = Name
+
+		changedProperty = FormatString
+
+	/// The exact date and time of the meter reading.
+	/// This is the column CostByDynamicPrice matches against DynamicTarif[ValidFrom] to find the price in force at that moment.
+	column datetime
+		dataType: dateTime
+		formatString: General Date
+		sourceProviderType: datetime2
+		lineageTag: 8aa4a62a-1301-4b5c-aabe-47749431db89
+		sourceLineageTag: datetime
+		summarizeBy: none
+		sourceColumn: datetime
+
+		annotation SummarizationSetBy = Automatic
+
+	/// The date part of the reading, used only as the key that joins this table to the ConsumptionDate calendar table.
+	/// Hidden on purpose: report users should slice by the ConsumptionDate table instead so that all date attributes stay consistent.
+	column ConsumptionDate
+		dataType: dateTime
+		isHidden
+		formatString: General Date
+		sourceProviderType: date
+		lineageTag: 08715d77-a727-4dd3-9e3a-15c93deede9a
+		sourceLineageTag: ConsumptionDate
+		summarizeBy: none
+		sourceColumn: ConsumptionDate
+
+		changedProperty = IsHidden
+
+		annotation SummarizationSetBy = Automatic
+
+	/// The time-of-day part of the reading, used only as the key that joins this table to the ConsumptionTime table.
+	/// Hidden on purpose: slice by the ConsumptionTime table to get Hour and Day/Night.
+	column ConsumptionTime
+		dataType: dateTime
+		isHidden
+		formatString: General Date
+		sourceProviderType: time
+		lineageTag: a1997a36-995f-4b4d-8471-e76d3f2370c7
+		sourceLineageTag: ConsumptionTime
+		summarizeBy: none
+		sourceColumn: ConsumptionTime
+
+		changedProperty = IsHidden
+
+		annotation SummarizationSetBy = Automatic
+
+	/// Raw source identifier of the customer or metering dataset; the key that joins this table to the Customer table.
+	/// Hidden on purpose: use Customer[CustomerId] in reports instead.
+	column dataset_id
+		dataType: string
+		isHidden
+		sourceProviderType: varchar(8000)
+		lineageTag: 31533d32-7e4b-4735-a5ef-aaf37e5f0020
+		sourceLineageTag: dataset_id
+		summarizeBy: none
+		sourceColumn: dataset_id
+
+		changedProperty = IsHidden
+
+		annotation SummarizationSetBy = Automatic
+
+	/// The measured electricity used in that interval, in watt-hours (Wh).
+	/// The raw number behind every calculation in the model; cost measures divide it by 1000 to convert to kWh before pricing.
+	/// Note: this column carries a currency format string even though it is an energy quantity, so visuals may show it with a $ sign.
+	column consumption_Wh
+		dataType: decimal
+		formatString: \$#,0.###############;(\$#,0.###############);\$#,0.###############
+		sourceProviderType: decimal(10, 2)
+		lineageTag: 6d1ea3e3-40de-4c31-98ad-fee4a6d94221
+		sourceLineageTag: consumption_Wh
+		summarizeBy: sum
+		sourceColumn: consumption_Wh
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"currencyCulture":"en-US"}
+
+	partition Consumption = entity
+		mode: directLake
+		source
+			entityName: Consumption
+			schemaName: ekzdata
+			expressionSource: DatabaseQuery
+
+	annotation PBI_ResultType = Table
+

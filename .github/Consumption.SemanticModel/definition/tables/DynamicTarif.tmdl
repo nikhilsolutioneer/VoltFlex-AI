@@ -1,0 +1,89 @@
+/// Price list for the dynamic (time-of-use) tariff. One row per tariff price and the time window it applies to.
+/// CostByDynamicPrice reads this table to find the price in force at the moment of each meter reading.
+/// Note there is no relationship to the fact table: the match is made inside DAX with LOOKUPVALUE on the timestamp.
+table DynamicTarif
+	lineageTag: 992e2b20-0874-4e11-afa6-71d5339cdeb4
+	sourceLineageTag: [ekzdata].[DynamicTarif]
+
+	/// Name of the tariff product this price belongs to.
+	column TarifName
+		dataType: string
+		sourceProviderType: varchar(8000)
+		lineageTag: 0db5fa35-52db-427b-bf78-4c4835b1aae2
+		sourceLineageTag: TarifName
+		summarizeBy: none
+		sourceColumn: TarifName
+
+		annotation SummarizationSetBy = Automatic
+
+	/// Category of the tariff, used to tell different pricing schemes apart.
+	column TarifType
+		dataType: string
+		sourceProviderType: varchar(8000)
+		lineageTag: 34fd2c16-5151-42fe-b107-ea710523e4d5
+		sourceLineageTag: TarifType
+		summarizeBy: none
+		sourceColumn: TarifType
+
+		annotation SummarizationSetBy = Automatic
+
+	/// The price itself for the window between ValidFrom and ValidTo, expressed in the currency given by the Unit column.
+	/// Multiplied by consumption in kWh to produce the dynamic cost.
+	column Tarif
+		dataType: double
+		sourceProviderType: decimal(12, 5)
+		lineageTag: f7453539-0266-481f-99e1-4a9f60487190
+		sourceLineageTag: Tarif
+		summarizeBy: sum
+		sourceColumn: Tarif
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	/// The unit the price is quoted in, for example currency per kWh. Documents the scale behind the Tarif value.
+	column Unit
+		dataType: string
+		sourceProviderType: varchar(8000)
+		lineageTag: 387c6a62-67c8-4f10-b0b3-85e27f000f30
+		sourceLineageTag: Unit
+		summarizeBy: none
+		sourceColumn: Unit
+
+		annotation SummarizationSetBy = Automatic
+
+	/// Start of the period this price is valid for.
+	/// CostByDynamicPrice matches a reading's timestamp against this column exactly, so the values here
+	/// must line up precisely with the meter reading timestamps or the price will not be found.
+	column ValidFrom
+		dataType: dateTime
+		formatString: General Date
+		sourceProviderType: datetime2
+		lineageTag: e3105626-af12-457a-9c1b-220d2b1871e7
+		sourceLineageTag: ValidFrom
+		summarizeBy: none
+		sourceColumn: ValidFrom
+
+		annotation SummarizationSetBy = Automatic
+
+	/// End of the period this price is valid for. Stored for reference; the cost calculation currently matches on ValidFrom only.
+	column ValidTo
+		dataType: dateTime
+		formatString: General Date
+		sourceProviderType: datetime2
+		lineageTag: a32ec660-7495-4df7-b7a8-59a7fef71e85
+		sourceLineageTag: ValidTo
+		summarizeBy: none
+		sourceColumn: ValidTo
+
+		annotation SummarizationSetBy = Automatic
+
+	partition DynamicTarif = entity
+		mode: directLake
+		source
+			entityName: DynamicTarif
+			schemaName: ekzdata
+			expressionSource: DatabaseQuery
+
+	annotation PBI_ResultType = Table
+

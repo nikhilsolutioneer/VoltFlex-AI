@@ -1,0 +1,31 @@
+/// Customer dimension. One row per metered customer, used to filter all consumption, cost and savings figures
+/// down to a single customer or to compare customers with each other.
+table Customer
+	lineageTag: 66049993-9383-4541-b8c5-0bc44e02ccd8
+	sourceLineageTag: [ekzdata].[Customer]
+
+	/// Identifier of an individual Customer. Primary key of this table and the link to Consumption[dataset_id].
+	/// Renamed from the raw source column dataset_id to make it readable in reports.
+	column CustomerId
+		dataType: string
+		sourceProviderType: varchar(8000)
+		lineageTag: b6d66971-1f61-4943-b833-95b8624ef304
+		sourceLineageTag: dataset_id
+		summarizeBy: none
+		sourceColumn: dataset_id
+
+		changedProperty = Name
+
+		changedProperty = Description
+
+		annotation SummarizationSetBy = Automatic
+
+	partition Customer = entity
+		mode: directLake
+		source
+			entityName: Customer
+			schemaName: ekzdata
+			expressionSource: DatabaseQuery
+
+	annotation PBI_ResultType = Table
+

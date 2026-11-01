@@ -1,0 +1,77 @@
+/// Pre-calculated daily summary of the dynamic price list: for each day, the single cheapest tariff seen that day.
+/// Feeds the CostByLowestPrice best-case scenario. Precomputing the daily minimum keeps that measure fast
+/// and avoids scanning the full price list for every calculation.
+table DynamicTarifMinValuePerDay
+	lineageTag: 2f6b7172-2094-4428-942f-1fe99612e62b
+	sourceLineageTag: [ekzdata].[DynamicTarifMinValuePerDay]
+
+	/// Name of the tariff product the daily minimum was taken from.
+	column TarifName
+		dataType: string
+		sourceProviderType: varchar(8000)
+		lineageTag: 5aeffc74-4f27-45b2-bf7e-d8a97aeef5bd
+		sourceLineageTag: TarifName
+		summarizeBy: none
+		sourceColumn: TarifName
+
+		annotation SummarizationSetBy = Automatic
+
+	/// Category of the tariff the daily minimum was taken from.
+	column TarifType
+		dataType: string
+		sourceProviderType: varchar(8000)
+		lineageTag: 87af7394-e3d3-4354-89a5-2cb16ad62f3d
+		sourceLineageTag: TarifType
+		summarizeBy: none
+		sourceColumn: TarifType
+
+		annotation SummarizationSetBy = Automatic
+
+	/// The unit the price is quoted in, for example currency per kWh.
+	column Unit
+		dataType: string
+		sourceProviderType: varchar(8000)
+		lineageTag: cff012a1-082d-4ec4-a9af-9eb4ae5e0260
+		sourceLineageTag: Unit
+		summarizeBy: none
+		sourceColumn: Unit
+
+		annotation SummarizationSetBy = Automatic
+
+	/// The day these figures apply to. Links this table to the ConsumptionDate calendar,
+	/// which is how CostByLowestPrice lines each day's cheapest price up with that day's consumption.
+	column ConsumptionDate
+		dataType: dateTime
+		formatString: General Date
+		sourceProviderType: date
+		lineageTag: f78b7e64-dbd4-4b8c-851b-00adda58aaa8
+		sourceLineageTag: ConsumptionDate
+		summarizeBy: none
+		sourceColumn: ConsumptionDate
+
+		annotation SummarizationSetBy = Automatic
+
+	/// The cheapest tariff price available on that day.
+	/// Used by CostByLowestPrice to price a whole day's consumption at its best possible rate,
+	/// which gives the theoretical maximum saving.
+	column LowestTarif
+		dataType: double
+		sourceProviderType: decimal(12, 5)
+		lineageTag: c3d13dbf-b38c-440e-8bf2-225cac0b9e8c
+		sourceLineageTag: LowestTarif
+		summarizeBy: sum
+		sourceColumn: LowestTarif
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	partition DynamicTarifMinValuePerDay = entity
+		mode: directLake
+		source
+			entityName: DynamicTarifMinValuePerDay
+			schemaName: ekzdata
+			expressionSource: DatabaseQuery
+
+	annotation PBI_ResultType = Table
+

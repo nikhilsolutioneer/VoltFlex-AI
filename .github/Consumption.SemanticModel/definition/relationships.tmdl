@@ -1,0 +1,20 @@
+relationship 3c71b992-9aba-60dd-9e0e-08f19000f14d
+	relyOnReferentialIntegrity
+	fromColumn: Consumption.dataset_id
+	toColumn: Customer.CustomerId
+
+relationship cdedccf6-fc3b-b578-d656-4bcf372ab75f
+	relyOnReferentialIntegrity
+	fromColumn: Consumption.ConsumptionDate
+	toColumn: ConsumptionDate.ConsumptionDate
+
+relationship 29d16dd7-9941-250d-f572-f9909231a968
+	relyOnReferentialIntegrity
+	fromColumn: DynamicTarifMinValuePerDay.ConsumptionDate
+	toColumn: ConsumptionDate.ConsumptionDate
+
+relationship 7e5e771d-d8ef-c38e-2e33-508c6cda79ca
+	relyOnReferentialIntegrity
+	fromColumn: Consumption.ConsumptionTime
+	toColumn: ConsumptionTime.ConsumptionTime
+

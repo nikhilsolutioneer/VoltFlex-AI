@@ -1,0 +1,100 @@
+/// Calendar (date dimension). One row per calendar day, with ready-made attributes for grouping and filtering.
+/// Use this table for any date-based slicing or trending rather than the raw date on the fact table,
+/// so that every visual groups dates the same way.
+table ConsumptionDate
+	lineageTag: 1b5c395b-ff81-4a92-a414-25eab18b8ecc
+	sourceLineageTag: [ekzdata].[ConsumptionDate]
+
+	/// The calendar day itself. Primary key of this table and the link to both Consumption and DynamicTarifMinValuePerDay.
+	column ConsumptionDate
+		dataType: dateTime
+		formatString: General Date
+		sourceProviderType: date
+		lineageTag: 3f1af09b-e0d4-4a8b-9552-bfef5a3dae15
+		sourceLineageTag: ConsumptionDate
+		summarizeBy: none
+		sourceColumn: ConsumptionDate
+
+		annotation SummarizationSetBy = Automatic
+
+	/// Month name as text, for axis labels and slicers.
+	/// Sorted by MonthOfYear so months appear in calendar order rather than alphabetically.
+	column Month
+		dataType: string
+		sourceProviderType: varchar(30)
+		lineageTag: 7b4d0a94-edb7-4501-814a-e28880f2cf6f
+		sourceLineageTag: Month
+		summarizeBy: none
+		sourceColumn: Month
+		sortByColumn: MonthOfYear
+
+		changedProperty = SortByColumn
+
+		annotation SummarizationSetBy = Automatic
+
+	/// Month as a number from 1 to 12. Exists to drive the sort order of the Month text column; rarely shown on its own.
+	column MonthOfYear
+		dataType: int64
+		formatString: 0
+		sourceProviderType: int
+		lineageTag: bdd817e6-b84e-4e46-928a-33b2027dc9de
+		sourceLineageTag: MonthOfYear
+		summarizeBy: sum
+		sourceColumn: MonthOfYear
+
+		annotation SummarizationSetBy = Automatic
+
+	/// Week number of the year, for weekly trends and comparisons.
+	column Week
+		dataType: int64
+		formatString: 0
+		sourceProviderType: int
+		lineageTag: 65c862f4-7aef-4122-887a-69d848240390
+		sourceLineageTag: Week
+		summarizeBy: sum
+		sourceColumn: Week
+
+		annotation SummarizationSetBy = Automatic
+
+	/// The season the day falls in, for comparing heating-heavy and lighter periods of the year.
+	column Season
+		dataType: string
+		sourceProviderType: varchar(6)
+		lineageTag: 60b2c761-b7b3-4d89-95e5-6d3f207ecff5
+		sourceLineageTag: Season
+		summarizeBy: none
+		sourceColumn: Season
+
+		annotation SummarizationSetBy = Automatic
+
+	/// Name of the day of the week, such as Monday.
+	column DayName
+		dataType: string
+		sourceProviderType: varchar(30)
+		lineageTag: b8b175c7-8f78-43e0-b82d-1c6ed46975b4
+		sourceLineageTag: DayName
+		summarizeBy: none
+		sourceColumn: DayName
+
+		annotation SummarizationSetBy = Automatic
+
+	/// Groups days into weekday versus weekend, since consumption patterns and savings potential differ between the two.
+	column DayType
+		dataType: string
+		sourceProviderType: varchar(7)
+		lineageTag: 84c99cf8-5bb2-4e21-a79b-06316e89b990
+		sourceLineageTag: DayType
+		summarizeBy: none
+		sourceColumn: DayType
+
+		annotation SummarizationSetBy = Automatic
+
+	partition ConsumptionDate = entity
+		mode: directLake
+		source
+			entityName: ConsumptionDate
+			schemaName: ekzdata
+			expressionSource: DatabaseQuery
+
+	annotation PBI_ResultType = Table
+
